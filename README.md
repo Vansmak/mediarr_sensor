@@ -3,21 +3,7 @@ Support This Project If you find this project helpful, please consider supportin
 
 # Mediarr for Home Assistant (inspired by upcoming media card)
 
-A comprehensive media management card and integration for Home Assistant that brings together your media servers, management tools, and discovery services in one place.
-
-## Features
-
-- **Media Server Integration**
-  - Plex or Jellyfin(v1.5.2): View recently added content
-  
-
-- **Media Management**
-  - Sonarr: View upcoming TV shows and episodes
-  - Radarr: Track upcoming movie releases
-
-- **Media Discovery**
-  - Trakt: Browse popular TV shows and movies
-  - TMDB: Explore trending content (configurable for TV, movies, or both)
+sensors for use in Mediarr-card 
 
 ## Screenshots
 
@@ -58,20 +44,26 @@ sensor:
       port: xxxxxx
       token: your_token
       max_items: 10
-      tmdb_api_key: "your_tmdb_api_key"  #required for tmdb version 
-    
+      tmdb_api_key: "your_tmdb_api_key"
+
+    seer::  # Optional
+      url: localhost
+      token: your_token
+      max_items: 10
+      tmdb_api_key: "your_tmdb_api_key"
+
     sonarr:  # Optional
       url: http://localhost:8989
       api_key: your_sonarr_api_key
       max_items: 10
       days_to_check: 60
-      tmdb_api_key: "your_tmdb_api_key"  #required for tmdb version
+      tmdb_api_key: "your_tmdb_api_key" 
 
     radarr:  # Optional
       url: http://localhost:7878
       api_key: your_radarr_api_key
       max_items: 10
-      tmdb_api_key: "your_tmdb_api_key"  #required for tmdb version 
+      tmdb_api_key: "your_tmdb_api_key" 
     
     trakt:  # Optional
       client_id: "your_client_id"
@@ -93,7 +85,7 @@ sensor:
 ```
 
 
-### Step 3: install Mediarr-card from https://github.com/Vansmak/mediarr_card
+### Step 3: install Mediarr-card from https://github.com/Vansmak/mediarr-card
 Add the Card
 
 
