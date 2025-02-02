@@ -39,16 +39,21 @@ Add one or more of the following sensors to your `configuration.yaml`:
 ```yaml
 sensor:
   - platform: mediarr
-    plex/jellyfin:  # Optional
+    plex:  # Optional
       host: localhost
       port: xxxxxx
       token: your_token
+
+    jellyfin:  # Optional
+      host: localhost
+      port: xxxxxx
+      token: your_api_key 
       max_items: 10
       tmdb_api_key: "your_tmdb_api_key"
 
     seer::  # Optional
       url: localhost
-      token: your_token
+      token: your_api_key
       max_items: 10
       tmdb_api_key: "your_tmdb_api_key"
 
