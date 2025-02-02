@@ -53,7 +53,7 @@ sensor:
 
     seer: # Optional
       url: localhost
-      token: your_api_key
+      api_key: your_api_key
       max_items: 10
       tmdb_api_key: "your_tmdb_api_key"
 
