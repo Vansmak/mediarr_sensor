@@ -55,8 +55,12 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         ))
 
     # Discovery Sensors
+    
     if "trakt" in config:
         from .discovery.trakt import TraktMediarrSensor
+        from .discovery.trakt_user import TraktUserMediarrSensor
+
+        # Add default Trakt sensor
         sensors.append(TraktMediarrSensor(
             session,
             config["trakt"]["client_id"],
@@ -65,6 +69,22 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             config["trakt"].get("max_items", DEFAULT_MAX_ITEMS),
             config["trakt"].get("tmdb_api_key")
         ))
+
+        # Add user-specific sensors
+        user_endpoints = ['collection', 'watched', 'watchlist', 
+                       'recommendations', 'recently_watched', 'upcoming']
+        
+        for endpoint in user_endpoints:
+            if config["trakt"].get(endpoint, False):
+                sensors.append(TraktUserMediarrSensor(
+                    session,
+                    config["trakt"]["username"],
+                    config["trakt"]["client_id"],
+                    config["trakt"]["client_secret"],
+                    endpoint,
+                    config["trakt"].get("max_items", DEFAULT_MAX_ITEMS),
+                    config["trakt"].get("tmdb_api_key")
+                ))
 
     if "tmdb" in config:
         from .discovery.tmdb import TMDBMediarrSensor
