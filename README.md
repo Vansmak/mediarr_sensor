@@ -123,10 +123,10 @@ Add the Card
 
 ## Upcoming Features
 
-- Jellyfin and Emby support
-- Direct Plex playback functionality
-- Library status indicators for Trakt/TMDB content
-- Integration with Sonarr/Radarr for direct addition of new content
+
+- Direct playback functionality
+- Library status indicators for Trakt/TMDB content, more user endppints like calendar for trakt
+- Integration with Sonarr/Radarr/seer for direct addition of new content
 
 ## Contributors
 Vansmak aka Vanhacked
