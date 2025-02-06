@@ -55,20 +55,21 @@ sensor:
       url: localhost
       api_key: your_api_key
       max_items: 10
-      tmdb_api_key: "your_tmdb_api_key"
+      tmdb_api_key: "your_tmdb_api_key" # no longer needed
 
     sonarr:  # Optional
       url: http://localhost:8989
       api_key: your_sonarr_api_key
       max_items: 10
       days_to_check: 60
-      tmdb_api_key: "your_tmdb_api_key" 
+      tmdb_api_key: "your_tmdb_api_key" # no longer needed
 
     radarr:  # Optional
       url: http://localhost:7878
       api_key: your_radarr_api_key
       max_items: 10
-      tmdb_api_key: "your_tmdb_api_key" 
+      days_to_check: 60 #breaking change
+      tmdb_api_key: "your_tmdb_api_key" # no longer needed
     
     trakt:  # Optional
       client_id: "your_client_id"
