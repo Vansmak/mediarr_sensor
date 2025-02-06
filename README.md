@@ -26,7 +26,7 @@ sensors for use in Mediarr-card
 
 
 ### Manual Installation
-1. Download the latest release
+1. Download the latest  before hacs (can break)
 2. Copy all contents from `custom_components/mediarr/` to `/config/custom_components/mediarr/`
    
 4. Restart Home Assistant
