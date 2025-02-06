@@ -5,14 +5,6 @@ Support This Project If you find this project helpful, please consider supportin
 
 sensors for use in Mediarr-card 
 
-## Screenshots
-
-
-![VIEW](https://github.com/user-attachments/assets/e5eda74d-e50b-4dde-9985-45282dc99a51)
-
-
-![Screenshot 2025-01-21 at 14-51-50 mediarr – Home Assistant](https://github.com/user-attachments/assets/4c73b44a-680a-42ea-8d2b-0d96806fb1c6)
-
 ## Installation
 
 ### HACS Installation
