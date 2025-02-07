@@ -4,7 +4,7 @@ Support This Project If you find this project helpful, please consider supportin
 # Mediarr for Home Assistant (inspired by upcoming media card) https://github.com/Vansmak/mediarr-card
 
 sensors for use in Mediarr-card 
-
+## New addition, added more seer sensors
 ## Installation
 
 ### HACS Installation
@@ -43,11 +43,15 @@ sensor:
       max_items: 10
       tmdb_api_key: "your_tmdb_api_key"
 
-    seer: # Optional
+    seer: # Optional #shows requests
       url: localhost
       api_key: your_api_key
       max_items: 10
       tmdb_api_key: "your_tmdb_api_key" # no longer needed
+      trending: true      
+      discover: true  
+      popular_movies: true  
+      popular_tv: true 
 
     sonarr:  # Optional
       url: http://localhost:8989
@@ -114,12 +118,11 @@ Add the Card
 1. Create an account at [TMDB](https://www.themoviedb.org/)
 2. Request an API key from your account settings
 
+### Overseer\Jellyseer
+1. Go to Settings -> General
+2. Copy your API key
+   
 ## Upcoming Features
-
-
-- Direct playback functionality
-- Library status indicators for Trakt/TMDB content, more user endppints like calendar for trakt
-- Integration with Sonarr/Radarr/seer for direct addition of new content
 
 ## Contributors
 Vansmak aka Vanhacked
