@@ -47,7 +47,7 @@ sensor:
       url: localhost
       api_key: your_api_key
       max_items: 10
-      tmdb_api_key: "your_tmdb_api_key" # no longer needed
+      tmdb_api_key: "your_tmdb_api_key" 
       trending: true      
       discover: true  
       popular_movies: true  
@@ -58,7 +58,7 @@ sensor:
       api_key: your_sonarr_api_key
       max_items: 10
       days_to_check: 60
-      tmdb_api_key: "your_tmdb_api_key" # no longer needed
+      tmdb_api_key: "your_tmdb_api_key" #remove, no longer needed 
 
     radarr:  # Optional
       url: http://localhost:7878
