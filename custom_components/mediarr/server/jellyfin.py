@@ -242,6 +242,7 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
         try:
             recently_added = []
             current_item_ids = set()
+            show_episodes = {}  # Dictionary to track episodes per show
             libraries = await self._get_libraries()
             
             # Get all libraries (both movies and TV)
@@ -256,7 +257,33 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
                         item_id = item.get('Id')
                         if item_id:
                             current_item_ids.add(item_id)
-                        recently_added.append(processed)
+                        
+                        # Handle TV show episodes differently for grouping
+                        if 'S' in processed.get('number', ''):  # It's a TV episode
+                            show_title = processed['title']
+                            if show_title not in show_episodes:
+                                show_episodes[show_title] = {
+                                    **processed,
+                                    'episodes': [processed['number']],
+                                    'added_at': processed.get('release', '')  # Using release date as added_at
+                                }
+                            else:
+                                show_episodes[show_title]['episodes'].append(processed['number'])
+                                # Update if this episode is newer
+                                if processed.get('release', '') > show_episodes[show_title]['added_at']:
+                                    show_episodes[show_title]['added_at'] = processed.get('release', '')
+                                    show_episodes[show_title]['episode'] = processed['episode']
+                                    show_episodes[show_title]['number'] = processed['number']
+                        else:
+                            recently_added.append(processed)
+
+            # Process grouped shows
+            for show_data in show_episodes.values():
+                episode_count = len(show_data['episodes'])
+                if episode_count > 1:
+                    show_data['episode'] = f"{episode_count} new episodes ({show_data['number']})"
+                del show_data['episodes']  # Remove the episodes list before adding to final results
+                recently_added.append(show_data)
 
             # Clean up unused cached images
             self._clean_unused_images(current_item_ids)
