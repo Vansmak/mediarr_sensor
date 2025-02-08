@@ -3,8 +3,6 @@
 
 from homeassistant.const import (
     CONF_URL,
-    CONF_HOST,
-    CONF_PORT,
     CONF_TOKEN,
 )
 import homeassistant.helpers.config_validation as cv

@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import aiohttp
 import async_timeout
 import voluptuous as vol
-from homeassistant.const import CONF_TOKEN, CONF_HOST, CONF_PORT
+from homeassistant.const import CONF_TOKEN, CONF_URL
 import homeassistant.helpers.config_validation as cv
 from ..common.const import CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS
 from ..common.tmdb_sensor import TMDBMediaSensor
@@ -12,14 +12,12 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_HOST = 'localhost'
-DEFAULT_PORT = 32400
+DEFAULT_URL = 'http://localhost:32400'
 
 PLEX_SCHEMA = {
     vol.Required(CONF_TOKEN): cv.string,
     vol.Required('tmdb_api_key'): cv.string,
-    vol.Optional(CONF_HOST, default=DEFAULT_HOST): cv.string,
-    vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
+    vol.Optional(CONF_URL, default=DEFAULT_URL): cv.string,
     vol.Optional(CONF_MAX_ITEMS, default=DEFAULT_MAX_ITEMS): cv.positive_int,
 }
 
@@ -29,7 +27,7 @@ class PlexMediarrSensor(TMDBMediaSensor):
     def __init__(self, session, config, sections):
         """Initialize the sensor."""
         super().__init__(session, config['tmdb_api_key'])
-        self._base_url = f"http://{config[CONF_HOST]}:{config[CONF_PORT]}"
+        self._base_url = config[CONF_URL]
         self._token = config[CONF_TOKEN]
         self._max_items = config[CONF_MAX_ITEMS]
         self._name = "Plex Mediarr"
@@ -240,7 +238,7 @@ class PlexMediarrSensor(TMDBMediaSensor):
     async def create_sensors(cls, hass, config):
         """Create a single Plex sensor for all sections."""
         try:
-            base_url = f"http://{config[CONF_HOST]}:{config[CONF_PORT]}"
+            base_url = config[CONF_URL]
             token = config[CONF_TOKEN]
 
             # Fetch sections
