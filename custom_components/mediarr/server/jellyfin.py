@@ -4,7 +4,7 @@ import aiohttp
 import async_timeout
 import voluptuous as vol
 from pathlib import Path
-from homeassistant.const import CONF_TOKEN, CONF_URL
+from homeassistant.const import CONF_TOKEN, CONF_HOST, CONF_PORT
 import homeassistant.helpers.config_validation as cv
 from ..common.const import CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS
 from ..common.tmdb_sensor import TMDBMediaSensor
@@ -12,12 +12,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_URL = 'http://localhost:8096'
+DEFAULT_HOST = 'localhost'
+DEFAULT_PORT = 8096
 
 JELLYFIN_SCHEMA = {
     vol.Required(CONF_TOKEN): cv.string,
     vol.Required('tmdb_api_key'): cv.string,
-    vol.Optional(CONF_URL, default=DEFAULT_URL): cv.string,
+    vol.Optional(CONF_HOST, default=DEFAULT_HOST): cv.string,
+    vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
     vol.Optional(CONF_MAX_ITEMS, default=DEFAULT_MAX_ITEMS): cv.positive_int,
 }
 
@@ -27,7 +29,7 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
     def __init__(self, session, config, user_id):
         """Initialize the sensor."""
         super().__init__(session, config['tmdb_api_key'])
-        self._base_url = config[CONF_URL]
+        self._base_url = f"http://{config[CONF_HOST]}:{config[CONF_PORT]}"
         self._jellyfin_token = config[CONF_TOKEN]
         self._max_items = config[CONF_MAX_ITEMS]
         self._name = "Jellyfin Mediarr"
@@ -316,7 +318,7 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
     async def create_sensors(cls, hass, config):
         """Create a single Jellyfin sensor for all libraries."""
         try:
-            base_url = config[CONF_URL]
+            base_url = f"http://{config[CONF_HOST]}:{config[CONF_PORT]}"
             token = config[CONF_TOKEN]
 
             headers = {
