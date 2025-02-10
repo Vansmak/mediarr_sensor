@@ -124,6 +124,7 @@ Add the Card
 
 ## Contributors
 Vansmak aka Vanhacked
+FNXPT
 
 ## License
 MIT
