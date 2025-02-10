@@ -4,7 +4,8 @@ import xml.etree.ElementTree as ET
 import aiohttp
 import async_timeout
 import voluptuous as vol
-from homeassistant.const import CONF_TOKEN, CONF_HOST, CONF_PORT
+from datetime import datetime
+from homeassistant.const import CONF_TOKEN, CONF_URL
 import homeassistant.helpers.config_validation as cv
 from ..common.const import CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS
 from ..common.tmdb_sensor import TMDBMediaSensor
@@ -12,14 +13,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_HOST = 'localhost'
-DEFAULT_PORT = 32400
-
 PLEX_SCHEMA = {
     vol.Required(CONF_TOKEN): cv.string,
     vol.Required('tmdb_api_key'): cv.string,
-    vol.Optional(CONF_HOST, default=DEFAULT_HOST): cv.string,
-    vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
+    vol.Required(CONF_URL): cv.url,
     vol.Optional(CONF_MAX_ITEMS, default=DEFAULT_MAX_ITEMS): cv.positive_int,
 }
 
@@ -29,12 +26,15 @@ class PlexMediarrSensor(TMDBMediaSensor):
     def __init__(self, session, config, sections):
         """Initialize the sensor."""
         super().__init__(session, config['tmdb_api_key'])
-        self._base_url = f"http://{config[CONF_HOST]}:{config[CONF_PORT]}"
+        self._base_url = config[CONF_URL].rstrip('/')
         self._token = config[CONF_TOKEN]
         self._max_items = config[CONF_MAX_ITEMS]
         self._name = "Plex Mediarr"
         self._sections = sections
         self._session = session
+        self._state = 0
+        self._attributes = {'data': []}
+        self._available = True
 
     @property
     def name(self):
@@ -45,6 +45,31 @@ class PlexMediarrSensor(TMDBMediaSensor):
     def unique_id(self):
         """Return a unique ID for the sensor."""
         return "plex_mediarr"
+
+    @property
+    def available(self):
+        """Return True if entity is available."""
+        return self._available
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self._state
+
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        return self._attributes
+
+    def _format_added_date(self, timestamp):
+        """Format the added date from Unix timestamp."""
+        try:
+            if timestamp:
+                dt = datetime.fromtimestamp(int(timestamp))
+                return dt.strftime("%Y-%m-%d")
+        except Exception as err:
+            _LOGGER.error("Error formatting date: %s", err)
+        return ""
 
     async def _fetch_recently_added(self, section_id):
         """Fetch recently added items from a Plex section."""
@@ -65,12 +90,11 @@ class PlexMediarrSensor(TMDBMediaSensor):
             _LOGGER.error("Error fetching recently added: %s", err)
             return None
 
-    
-
     async def _process_item(self, item):
         """Process a single Plex item and get TMDB images."""
         try:
             added_at = item.get('addedAt', '0')
+            added_date = self._format_added_date(added_at)
             is_episode = item.get('type') == 'episode'
             
             if is_episode:
@@ -85,14 +109,12 @@ class PlexMediarrSensor(TMDBMediaSensor):
                         tmdb_id = guid_str.split('themoviedb://')[1].split('?')[0]
                         break
                 
-                # Fallback: Search TMDB if no ID found
                 if not tmdb_id:
                     tmdb_id = await self._search_tmdb(show_title, None, 'tv')
                     if not tmdb_id and '(' in show_title:
                         clean_title = show_title.split('(')[0].strip()
                         tmdb_id = await self._search_tmdb(clean_title, None, 'tv')
                 
-                # Get TMDB images
                 poster_url = backdrop_url = main_backdrop_url = None
                 if tmdb_id:
                     try:
@@ -100,15 +122,11 @@ class PlexMediarrSensor(TMDBMediaSensor):
                     except Exception as err:
                         _LOGGER.error("Error getting TMDB images for %s: %s", show_title, err)
 
-                # Truncate text fields
-                summary = str(item.get('summary', 'N/A'))
-                if len(summary) > 97:
-                    summary = summary[:97] + '...'
-
                 return {
                     'title': str(show_title)[:100],
                     'episode': str(item.get('title', ''))[:100],
                     'release': self._format_date(item.get('originallyAvailableAt', '')),
+                    'added': added_date,
                     'number': f"S{int(item.get('parentIndex', 0)):02d}E{int(item.get('index', 0)):02d}",
                     'runtime': str(int(item.get('duration', 0)) // 60000),
                     'genres': ', '.join(str(genre.get('tag', '')) for genre in item.findall('.//Genre'))[:50],
@@ -122,9 +140,6 @@ class PlexMediarrSensor(TMDBMediaSensor):
                 title = str(item.get('title', ''))
                 year = item.get('year')
                 
-                if title.startswith('20') and title.replace('_', '').isdigit():
-                    return None
-                    
                 tmdb_id = None
                 guid_list = item.findall('.//Guid')
                 for guid in guid_list:
@@ -133,7 +148,6 @@ class PlexMediarrSensor(TMDBMediaSensor):
                         tmdb_id = guid_str.split('themoviedb://')[1].split('?')[0]
                         break
 
-                # Fallback: Search TMDB if no ID found
                 if not tmdb_id:
                     tmdb_id = await self._search_tmdb(title, year, 'movie')
                     if not tmdb_id and '(' in title:
@@ -155,6 +169,7 @@ class PlexMediarrSensor(TMDBMediaSensor):
                     'title': title[:100],
                     'episode': summary,
                     'release': self._format_date(item.get('originallyAvailableAt', '')),
+                    'added': added_date,
                     'number': str(year or ''),
                     'runtime': str(int(item.get('duration', 0)) // 60000),
                     'genres': ', '.join(str(genre.get('tag', '')) for genre in item.findall('.//Genre'))[:50],
@@ -168,8 +183,6 @@ class PlexMediarrSensor(TMDBMediaSensor):
         except Exception as err:
             _LOGGER.error("Error processing item %s: %s", item.get('title', 'Unknown'), err)
             return None
-                
-               
 
     async def async_update(self):
         """Update sensor data."""
@@ -213,6 +226,7 @@ class PlexMediarrSensor(TMDBMediaSensor):
                 del show_data['episodes']
                 recently_added.append(show_data)
 
+            # Sort by added date
             recently_added.sort(key=lambda x: int(x.get('added_at', 0)), reverse=True)
             card_json.extend(recently_added[:self._max_items])
 
@@ -240,7 +254,7 @@ class PlexMediarrSensor(TMDBMediaSensor):
     async def create_sensors(cls, hass, config):
         """Create a single Plex sensor for all sections."""
         try:
-            base_url = f"http://{config[CONF_HOST]}:{config[CONF_PORT]}"
+            base_url = config[CONF_URL].rstrip('/')
             token = config[CONF_TOKEN]
 
             # Fetch sections
@@ -264,3 +278,8 @@ class PlexMediarrSensor(TMDBMediaSensor):
         except Exception as error:
             _LOGGER.error("Error initializing Plex sensors: %s", error)
             return []
+
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    """Set up the Plex sensor."""
+    sensors = await PlexMediarrSensor.create_sensors(hass, config)
+    async_add_entities(sensors, True)
