@@ -3,6 +3,7 @@ import logging
 import json
 import aiohttp
 import asyncio
+import aiofiles
 import async_timeout
 import voluptuous as vol
 from datetime import timedelta
@@ -97,27 +98,32 @@ class JellyfinWebSocket:
     async def _listen(self):
         """Listen for WebSocket messages."""
         try:
-            async for msg in self._ws:
-                if msg.type == aiohttp.WSMsgType.TEXT:
-                    data = json.loads(msg.data)
-                    
-                    # Handle different message types
-                    if data.get("MessageType") == "Library":
-                        # Library changed, trigger an update
-                        if "ItemsAdded" in data.get("Data", {}) or "ItemsRemoved" in data.get("Data", {}):
-                            _LOGGER.debug("Library changed, triggering update")
-                            await self._sensor.async_update()
-                            
-                    elif data.get("MessageType") == "ForceKeepAlive":
-                        # Respond to keep-alive messages
-                        await self._ws.send_str(json.dumps({
-                            "MessageType": "KeepAlive"
-                        }))
-                elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
-                    raise Exception("WebSocket connection closed or error")
+            async with async_timeout.timeout(30):  # Add timeout
+                async for msg in self._ws:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        data = json.loads(msg.data)
+                        
+                        # Handle different message types
+                        if data.get("MessageType") == "Library":
+                            # Library changed, trigger an update
+                            if "ItemsAdded" in data.get("Data", {}) or "ItemsRemoved" in data.get("Data", {}):
+                                _LOGGER.debug("Library changed, triggering update")
+                                await self._sensor.async_update()
+                                
+                        elif data.get("MessageType") == "ForceKeepAlive":
+                            # Respond to keep-alive messages
+                            await self._ws.send_str(json.dumps({
+                                "MessageType": "KeepAlive"
+                            }))
+                    elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                        _LOGGER.warning("WebSocket connection closed or error")
+                        break
 
+        except asyncio.TimeoutError:
+            _LOGGER.warning("WebSocket listener timeout")
         except Exception as err:
             _LOGGER.error("WebSocket listener error: %s", err)
+        finally:
             self._connected = False
             await self.cleanup()
             await self._schedule_reconnect()
@@ -156,6 +162,13 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
         self._available = True
         self._remove_update_interval = None
 
+    
+
+    @callback
+    def _update_callback(self, now):
+        """Handle the update interval callback."""
+        self.hass.loop.create_task(self.async_update())
+
     async def async_added_to_hass(self):
         """Handle entity which will be added."""
         await super().async_added_to_hass()
@@ -175,17 +188,9 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
         # Set up periodic updates as fallback
         self._remove_update_interval = async_track_time_interval(
             self.hass, 
-            lambda now: self.hass.async_create_task(self.async_update()),
+            self._update_callback,  # Use the callback method
             UPDATE_INTERVAL
         )
-
-    async def async_will_remove_from_hass(self):
-        """Clean up after entity before removal."""
-        await super().async_will_remove_from_hass()
-        if self._ws_client:
-            await self._ws_client.cleanup()
-        if self._remove_update_interval:
-            self._remove_update_interval()
 
     @property
     def name(self):
@@ -230,8 +235,11 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
                         cached_path = cache_dir / file_name
                         
                         content = await response.read()
-                        with open(cached_path, 'wb') as f:
-                            f.write(content)
+                        
+                        # Use aiofiles for async file operations
+                        async with aiofiles.open(cached_path, 'wb') as f:
+                            await f.write(content)
+                            
                         _LOGGER.debug("Successfully cached image for %s: %s", item_id, image_type)
                         return f"/local/mediarr/cache/{file_name}"
                     else:
