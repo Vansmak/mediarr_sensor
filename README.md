@@ -45,7 +45,7 @@ sensor:
 
 ### Step 1: Configure Sensors
 Add one or more of the following sensors to your `configuration.yaml, sensors`:
-## New addition, added more seer sensors
+## New addition, have multiple instances for sonarr and radarr (2 each)
 ```yaml
 sensor:
   - platform: mediarr
@@ -76,9 +76,20 @@ sensor:
       api_key: your_sonarr_api_key
       max_items: 10
       days_to_check: 60
-     
+
+    sonarr2:  # Optional
+      url: http://localhost:8989
+      api_key: your_sonarr_api_key
+      max_items: 10
+      days_to_check: 60 
 
     radarr:  # Optional
+      url: http://localhost:7878
+      api_key: your_radarr_api_key
+      max_items: 10
+      days_to_check: 60 #breaking change
+
+    radarr2:  # Optional
       url: http://localhost:7878
       api_key: your_radarr_api_key
       max_items: 10
