@@ -41,7 +41,15 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             config["sonarr"].get("max_items", DEFAULT_MAX_ITEMS),
             config["sonarr"].get("days_to_check", DEFAULT_DAYS)
         ))
-
+    if "sonarr2" in config:
+        from .manager.sonarr2 import Sonarr2MediarrSensor
+        sensors.append(Sonarr2MediarrSensor(
+            session,
+            config["sonarr2"]["api_key"],
+            config["sonarr2"]["url"],
+            config["sonarr2"].get("max_items", DEFAULT_MAX_ITEMS),
+            config["sonarr2"].get("days_to_check", DEFAULT_DAYS)
+        ))
     if "radarr" in config:
         from .manager.radarr import RadarrMediarrSensor
         sensors.append(RadarrMediarrSensor(
@@ -50,6 +58,15 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             config["radarr"]["url"],
             config["radarr"].get("max_items", DEFAULT_MAX_ITEMS),
             config["radarr"].get("days_to_check", DEFAULT_DAYS)
+        ))
+    if "radarr2" in config:
+        from .manager.radarr2 import Radarr2MediarrSensor
+        sensors.append(Radarr2MediarrSensor(
+            session,
+            config["radarr2"]["api_key"],
+            config["radarr2"]["url"],
+            config["radarr2"].get("max_items", DEFAULT_MAX_ITEMS),
+            config["radarr2"].get("days_to_check", DEFAULT_DAYS)
         ))
 
     # Discovery Sensors
