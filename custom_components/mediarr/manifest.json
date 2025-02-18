@@ -7,8 +7,8 @@
   "codeowners": ["@vansmak"],
   "requirements": [
     "aiohttp>=3.8.1",
-    "voluptuous>=0.13.1"
+    "aiofiles>=0.8.0"
   ],
   "iot_class": "local_polling",
-  "version": "3.0"
+  "version": "0.1.0"
 }

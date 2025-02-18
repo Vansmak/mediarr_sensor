@@ -3,6 +3,7 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 import aiohttp
+import urllib.parse
 import async_timeout
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ class SeerRequestHandler:
         """Search for media in Jellyseerr/Overseerr."""
         try:
             # URL encode the query properly
-            encoded_query = query.replace(" ", "%20")
+            encoded_query = urllib.parse.quote(query)
             params = {'query': encoded_query}
             search_url = f"{self._url}/api/v1/search"
                 
