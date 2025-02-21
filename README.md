@@ -105,7 +105,7 @@ sensor:
      
     
     tmdb:  # Optional
-      api_key: "your_api_key"
+      tmdb_api_key: !secret tmdb_api_key
       trending_type: all  # Options: movie, tv, all
       max_items: 10
       trending: true          # Default endpoint
