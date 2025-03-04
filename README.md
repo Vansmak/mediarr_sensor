@@ -52,7 +52,7 @@ sensor:
     seer: 
       url: localhost
       api_key: your_api_key
-      max_items: 10
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       tmdb_api_key: "your_tmdb_api_key" 
       trending: true # Optional     
       discover: true  # Optional
@@ -62,37 +62,37 @@ sensor:
     plex:  # Optional
       url: Plex url
       token: your_token
-      max_items: 10
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       tmdb_api_key: "your_tmdb_api_key"
 
     jellyfin:  # Optional
       url: jellyfin url
       token: your_api_key 
-      max_items: 10
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       tmdb_api_key: "your_tmdb_api_key"
 
     sonarr:  # Optional
       url: http://localhost:8989
       api_key: your_sonarr_api_key
-      max_items: 10
-      days_to_check: 60
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
+      days_to_check: 60 #example
 
     sonarr2:  # Optional
       url: http://localhost:8989
       api_key: your_sonarr_api_key
-      max_items: 10
-      days_to_check: 60 
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
+      days_to_check: 60  #example
 
     radarr:  # Optional
       url: http://localhost:7878
       api_key: your_radarr_api_key
-      max_items: 10
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       days_to_check: 60 #breaking change
 
     radarr2:  # Optional
       url: http://localhost:7878
       api_key: your_radarr_api_key
-      max_items: 10
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       days_to_check: 60 #breaking change
       
     
@@ -101,13 +101,13 @@ sensor:
       client_secret: "your_client_secret"
       tmdb_api_key: "your_tmdb_api_key"  # Required for posters
       trending_type: both  # Options: movies, shows, both
-      max_items: 10
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
      
     
     tmdb:  # Optional
-      tmdb_api_key: !secret tmdb_api_key
+      tmdb_api_key: "!secret tmdb_api_key"  #may need quotes
       trending_type: all  # Options: movie, tv, all
-      max_items: 10
+      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       trending: true          # Default endpoint
       now_playing: true       # Optional
       upcoming: true          # Optional
@@ -115,8 +115,8 @@ sensor:
       airing_today: false     # Optional
 ```
 # Sensor Configuration
-- **max_items**: Number of items to display (default: 10)
-- **days_to_check**: Days to look ahead for upcoming content (Sonarr only, default: 60)
+- **max_items**: Number of items to display (default: 45)
+- **days_to_check**: Days to look ahead for upcoming content (Sonarr only, default: 90)
 - **trending_type**: Content type to display for Trakt and TMDB
 
 ### Step 3: if you want a front-end, install Mediarr-card from https://github.com/Vansmak/mediarr-card
