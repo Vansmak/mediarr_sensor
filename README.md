@@ -64,12 +64,14 @@ sensor:
       token: your_token
       max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       tmdb_api_key: "your_tmdb_api_key"
+      language: en #default
 
     jellyfin:  # Optional
       url: jellyfin url
       token: your_api_key 
       max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
       tmdb_api_key: "your_tmdb_api_key"
+      language: en #default
 
     sonarr:  # Optional
       url: http://localhost:8989
@@ -118,7 +120,19 @@ sensor:
 - **max_items**: Number of items to display (default: 45)
 - **days_to_check**: Days to look ahead for upcoming content (Sonarr only, default: 90)
 - **trending_type**: Content type to display for Trakt and TMDB
+- **language:
+  common language codes you might use:
 
+    en - English
+    fr - French
+    de - German
+    es - Spanish
+    it - Italian
+    zh - Chinese
+    ko - Korean
+    ja - japanese
+    nl - dutch
+  
 ### Step 3: if you want a front-end, install Mediarr-card from https://github.com/Vansmak/mediarr-card
 Add the Card
 
