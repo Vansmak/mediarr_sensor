@@ -5,6 +5,7 @@ import aiohttp
 import asyncio
 import aiofiles
 import async_timeout
+import re
 import voluptuous as vol
 from datetime import timedelta
 from pathlib import Path
@@ -27,6 +28,7 @@ JELLYFIN_SCHEMA = {
      vol.Required('tmdb_api_key'): cv.string,
      vol.Required(CONF_URL): cv.url,
      vol.Optional(CONF_MAX_ITEMS, default=DEFAULT_MAX_ITEMS): cv.positive_int,
+     vol.Optional('language', default='en'): cv.string,  # Language parameter
 }
 
 class JellyfinWebSocket:
@@ -34,6 +36,7 @@ class JellyfinWebSocket:
 
     def __init__(self, sensor, server_url, token, user_id):
         """Initialize the WebSocket client."""
+        
         self._sensor = sensor
         self._ws = None
         self._base_url = server_url.replace('http', 'ws', 1)
@@ -147,7 +150,7 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
 
     def __init__(self, hass, session, config, user_id):
         """Initialize the sensor."""
-        super().__init__(session, config['tmdb_api_key'])
+        super().__init__(session, config['tmdb_api_key'], config.get('language', 'en'))
         self.hass = hass
         self._base_url = config[CONF_URL].rstrip('/')
         self._jellyfin_token = config[CONF_TOKEN]
@@ -217,6 +220,36 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
         """Return the state attributes."""
         return self._attributes
 
+    async def _enhanced_tmdb_search(self, title, year=None, media_type='movie'):
+        """Enhanced TMDB search with multiple strategies."""
+        # Try exact match first
+        tmdb_id = await self._search_tmdb(title, year, media_type)
+        if tmdb_id:
+            return tmdb_id
+            
+        # Try without year suffix in title
+        title_no_year = re.sub(r'\s*\(\d{4}\)\s*$', '', title).strip()
+        if title_no_year != title:
+            tmdb_id = await self._search_tmdb(title_no_year, year, media_type)
+            if tmdb_id:
+                return tmdb_id
+        
+        # Try removing any text in parentheses
+        title_no_parens = re.sub(r'\s*\([^)]*\)\s*', ' ', title).strip()
+        if title_no_parens != title and title_no_parens != title_no_year:
+            tmdb_id = await self._search_tmdb(title_no_parens, year, media_type)
+            if tmdb_id:
+                return tmdb_id
+        
+        # Try first part of title (before colon)
+        if ':' in title:
+            first_part = title.split(':', 1)[0].strip()
+            if len(first_part) > 3:  # Avoid too short titles
+                tmdb_id = await self._search_tmdb(first_part, year, media_type)
+                if tmdb_id:
+                    return tmdb_id
+        
+        return None
     async def _download_and_cache_image(self, url, item_id, image_type):
         """Download and cache an image from Jellyfin."""
         try:
@@ -282,6 +315,7 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
         except Exception as err:
             _LOGGER.error("Error getting Jellyfin images: %s", err)
         return None, None, None
+    
     async def _get_libraries(self):
         """Fetch movie and TV show libraries."""
         url = f"{self._base_url}/Users/{self._user_id}/Views"
@@ -341,37 +375,52 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
             item_id = item.get('Id')
             date_added = item.get('DateCreated', '')  # Get the date added
             
+            # Default empty images to None for cleaner handling
+            poster_url = backdrop_url = main_backdrop_url = None
+            
             if is_episode:
                 # Get TMDB ID for the series
                 series_name = str(item.get('SeriesName', '')).strip()
                 tmdb_id = item.get('ProviderIds', {}).get('Tmdb')
+                
                 if not tmdb_id:
-                    tmdb_id = await self._search_tmdb(series_name, None, 'tv')
-                    if not tmdb_id:
-                        clean_title = series_name.split('(')[0].strip()
-                        tmdb_id = await self._search_tmdb(clean_title, None, 'tv')
+                    _LOGGER.debug("Searching TMDB for TV show: %s", series_name)
+                    tmdb_id = await self._enhanced_tmdb_search(series_name, None, 'tv')
                 
                 # Try TMDB images first
-                poster_url = backdrop_url = main_backdrop_url = None
                 if tmdb_id:
-                    poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'tv')
+                    try:
+                        _LOGGER.debug("Getting TMDB images for show ID: %s", tmdb_id)
+                        poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'tv')
+                    except Exception as err:
+                        _LOGGER.error("Error getting TMDB images for %s: %s", series_name, err)
                 
                 # Fallback to Jellyfin images if needed
-                if not (poster_url and backdrop_url and main_backdrop_url):
-                    poster_url, backdrop_url, main_backdrop_url = await self._get_jellyfin_images(item_id)
+                if not poster_url or not backdrop_url or not main_backdrop_url:
+                    _LOGGER.debug("Falling back to Jellyfin images for: %s", series_name)
+                    jellyfin_poster, jellyfin_backdrop, jellyfin_main = await self._get_jellyfin_images(item_id)
+                    
+                    # Only use Jellyfin images for the ones that are missing
+                    if not poster_url and jellyfin_poster:
+                        poster_url = jellyfin_poster
+                    if not backdrop_url and jellyfin_backdrop:
+                        backdrop_url = jellyfin_backdrop
+                    if not main_backdrop_url and jellyfin_main:
+                        main_backdrop_url = jellyfin_main
                 
                 return {
                     'title': str(item.get('SeriesName', '')),
                     'episode': str(item.get('Name', '')),
                     'release': self._format_date(item.get('PremiereDate')),
-                    'added': self._format_date(date_added),  # Add date_added
+                    'added': self._format_date(date_added),
                     'number': f"S{item.get('ParentIndexNumber', 0):02d}E{item.get('IndexNumber', 0):02d}",
                     'runtime': str(int(item.get('RunTimeTicks', 0)) // 600000000),
                     'genres': ', '.join(str(g) for g in item.get('Genres', [])),
                     'poster': str(poster_url or ""),
                     'fanart': str(main_backdrop_url or backdrop_url or ""),
                     'banner': str(backdrop_url or ""),
-                    'flag': 1
+                    'flag': 1,
+                    'added_at': date_added  # Store raw date for sorting
                 }
             else:
                 # Process movie
@@ -380,33 +429,45 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
                 
                 # Try TMDB ID from provider IDs first
                 tmdb_id = item.get('ProviderIds', {}).get('Tmdb')
+                
                 if not tmdb_id:
-                    tmdb_id = await self._search_tmdb(title, year, 'movie')
-                    if not tmdb_id:
-                        clean_title = title.split('(')[0].strip()
-                        tmdb_id = await self._search_tmdb(clean_title, None, 'movie')
+                    _LOGGER.debug("Searching TMDB for movie: %s (%s)", title, year)
+                    tmdb_id = await self._enhanced_tmdb_search(title, year, 'movie')
                 
                 # Try TMDB images first
-                poster_url = backdrop_url = main_backdrop_url = None
                 if tmdb_id:
-                    poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'movie')
+                    try:
+                        _LOGGER.debug("Getting TMDB images for movie ID: %s", tmdb_id)
+                        poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'movie')
+                    except Exception as err:
+                        _LOGGER.error("Error getting TMDB images for %s: %s", title, err)
                 
                 # Fallback to Jellyfin images if needed
-                if not (poster_url and backdrop_url and main_backdrop_url):
-                    poster_url, backdrop_url, main_backdrop_url = await self._get_jellyfin_images(item_id)
+                if not poster_url or not backdrop_url or not main_backdrop_url:
+                    _LOGGER.debug("Falling back to Jellyfin images for: %s", title)
+                    jellyfin_poster, jellyfin_backdrop, jellyfin_main = await self._get_jellyfin_images(item_id)
+                    
+                    # Only use Jellyfin images for the ones that are missing
+                    if not poster_url and jellyfin_poster:
+                        poster_url = jellyfin_poster
+                    if not backdrop_url and jellyfin_backdrop:
+                        backdrop_url = jellyfin_backdrop
+                    if not main_backdrop_url and jellyfin_main:
+                        main_backdrop_url = jellyfin_main
                 
                 return {
                     'title': str(item.get('Name', 'Unknown')),
                     'episode': str(item.get('Overview', 'N/A')[:100] + '...' if item.get('Overview') else 'N/A'),
                     'release': self._format_date(item.get('PremiereDate')),
-                    'added': self._format_date(date_added),  # Add date_added
+                    'added': self._format_date(date_added),
                     'number': str(item.get('ProductionYear', '')),
                     'runtime': str(int(item.get('RunTimeTicks', 0)) // 600000000),
                     'genres': ', '.join(str(g) for g in item.get('Genres', [])),
                     'poster': str(poster_url or ""),
                     'fanart': str(main_backdrop_url or backdrop_url or ""),
                     'banner': str(backdrop_url or ""),
-                    'flag': 1
+                    'flag': 1,
+                    'added_at': date_added  # Store raw date for sorting
                 }
             
         except Exception as err:
@@ -465,7 +526,7 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
             self._clean_unused_images(current_item_ids)
 
             # Sort by added date instead of release date
-            recently_added.sort(key=lambda x: x.get('added', ''), reverse=True)
+            recently_added.sort(key=lambda x: x.get('added_at', '') or x.get('added', ''), reverse=True)
             recently_added = recently_added[:self._max_items]
 
             if recently_added:
