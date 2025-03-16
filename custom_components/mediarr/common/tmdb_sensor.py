@@ -91,76 +91,52 @@ class TMDBMediaSensor(MediarrSensor, ABC):
             return None
     
     async def _get_tmdb_images(self, tmdb_id, media_type='movie'):
-        """Get TMDB image URLs with preferred language, falling back to English."""
+        """Get TMDB image URLs without language filtering."""
         if not tmdb_id:
             return None, None, None
 
-        cache_key = f"images_{media_type}_{tmdb_id}_{self._language}"
+        cache_key = f"images_{media_type}_{tmdb_id}"
         if cache_key in self._cache:
             return self._cache[cache_key]
             
         try:
-            # Try with preferred language first
-            params = {"language": self._language}
-            data = await self._fetch_tmdb_data(f"{media_type}/{tmdb_id}/images", params)
+            # Just get all images without language filtering
+            data = await self._fetch_tmdb_data(f"{media_type}/{tmdb_id}/images")
             
             poster_url = backdrop_url = main_backdrop_url = None
             
             if data:
-                # Process posters - try to find ones in the preferred language
+                _LOGGER.debug("Image data for %s (%s): Posters: %d, Backdrops: %d", 
+                            tmdb_id, media_type, len(data.get('posters', [])), len(data.get('backdrops', [])))
+                
+                # Get first available poster
                 posters = data.get('posters', [])
-                lang_posters = [p for p in posters if p.get('iso_639_1') == self._language]
-                
-                # Get poster path (preferred language if available, otherwise any)
-                if lang_posters:
-                    poster_path = lang_posters[0].get('file_path')
-                elif posters:
+                if posters:
                     poster_path = posters[0].get('file_path')
-                else:
-                    poster_path = None
-                    
-                # Process backdrops - try to find ones in the preferred language
-                backdrops = data.get('backdrops', [])
-                lang_backdrops = [b for b in backdrops if b.get('iso_639_1') == self._language]
+                    poster_url = f"{TMDB_IMAGE_BASE_URL}/w500{poster_path}" if poster_path else None
                 
-                # Get backdrop paths (preferred language if available, otherwise any)
-                if lang_backdrops:
-                    backdrop_path = lang_backdrops[0].get('file_path')
-                    main_backdrop_path = lang_backdrops[1].get('file_path') if len(lang_backdrops) > 1 else backdrop_path
-                elif backdrops:
+                # Get first and second available backdrops
+                backdrops = data.get('backdrops', [])
+                if backdrops:
+                    # Sort by vote count for better quality
                     backdrops.sort(key=lambda x: x.get('vote_count', 0), reverse=True)
+                    
                     backdrop_path = backdrops[0].get('file_path')
                     main_backdrop_path = backdrops[1].get('file_path') if len(backdrops) > 1 else backdrop_path
-                else:
-                    backdrop_path = main_backdrop_path = None
                     
-                # If preferred language images are missing but not English, try English as fallback
-                if (self._language != 'en' and 
-                    (not poster_path or not backdrop_path) and 
-                    not any(p.get('iso_639_1') == 'en' for p in posters)):
-                    
-                    # Fetch English images
-                    en_params = {"language": "en"}
-                    en_data = await self._fetch_tmdb_data(f"{media_type}/{tmdb_id}/images", en_params)
-                    
-                    if en_data:
-                        en_posters = en_data.get('posters', [])
-                        en_backdrops = en_data.get('backdrops', [])
-                        
-                        # Use English poster if needed
-                        if not poster_path and en_posters:
-                            poster_path = en_posters[0].get('file_path')
-                        
-                        # Use English backdrops if needed
-                        if not backdrop_path and en_backdrops:
-                            en_backdrops.sort(key=lambda x: x.get('vote_count', 0), reverse=True)
-                            backdrop_path = en_backdrops[0].get('file_path')
-                            main_backdrop_path = en_backdrops[1].get('file_path') if len(en_backdrops) > 1 else backdrop_path
+                    backdrop_url = f"{TMDB_IMAGE_BASE_URL}/w780{backdrop_path}" if backdrop_path else None
+                    main_backdrop_url = f"{TMDB_IMAGE_BASE_URL}/original{main_backdrop_path}" if main_backdrop_path else None
+                
+                # Use poster as fallback for backdrop if needed
+                if poster_url and (not backdrop_url or not main_backdrop_url):
+                    if not backdrop_url:
+                        backdrop_url = poster_url
+                    if not main_backdrop_url:
+                        main_backdrop_url = poster_url
+                    _LOGGER.debug("Using poster as backdrop fallback for %s", tmdb_id)
 
-                # Convert paths to URLs
-                poster_url = f"{TMDB_IMAGE_BASE_URL}/w500{poster_path}" if poster_path else None
-                backdrop_url = f"{TMDB_IMAGE_BASE_URL}/w780{backdrop_path}" if backdrop_path else None
-                main_backdrop_url = f"{TMDB_IMAGE_BASE_URL}/original{main_backdrop_path}" if main_backdrop_path else None
+                _LOGGER.debug("Image URLs for %s: poster=%s, backdrop=%s, main_backdrop=%s", 
+                            tmdb_id, poster_url is not None, backdrop_url is not None, main_backdrop_url is not None)
 
                 result = (poster_url, backdrop_url, main_backdrop_url)
                 self._cache[cache_key] = result
