@@ -184,15 +184,23 @@ class PlexMediarrSensor(TMDBMediaSensor):
             else:
                 thumb = item.get('thumb')
                 art = item.get('art')
-                
+            
             poster_url = backdrop_url = main_backdrop_url = None
             
+            # Ensure full URL works with both HTTP and HTTPS
+            def _ensure_full_url(partial_url):
+                if partial_url:
+                    if not partial_url.startswith(('http://', 'https://')):
+                        return f"{self._base_url}{partial_url}?X-Plex-Token={self._token}"
+                    return f"{partial_url}?X-Plex-Token={self._token}"
+                return None
+            
             if thumb:
-                full_thumb_url = f"{self._base_url}{thumb}?X-Plex-Token={self._token}"
+                full_thumb_url = _ensure_full_url(thumb)
                 poster_url = await self._download_and_cache_image(full_thumb_url, item_id, "poster")
             
             if art:
-                full_art_url = f"{self._base_url}{art}?X-Plex-Token={self._token}"
+                full_art_url = _ensure_full_url(art)
                 backdrop_url = await self._download_and_cache_image(full_art_url, item_id, "backdrop")
                 main_backdrop_url = backdrop_url
             
@@ -228,27 +236,30 @@ class PlexMediarrSensor(TMDBMediaSensor):
                         tmdb_id = guid_str.split('themoviedb://')[1].split('?')[0]
                         break
                 
-                if not tmdb_id:
-                    tmdb_id = await self._enhanced_tmdb_search(show_title, None, 'tv')
+                # First, try getting local (Plex/Jellyfin) images
+                local_poster, local_backdrop, local_main = await self._get_plex_images(item, item_id, is_show=True)
+                poster_url = local_poster
+                backdrop_url = local_backdrop
+                main_backdrop_url = local_main
                 
-                # Try TMDB images first
-                if tmdb_id:
-                    try:
-                        poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'tv')
-                    except Exception as err:
-                        _LOGGER.error("Error getting TMDB images for %s: %s", show_title, err)
-                
-                # Fallback to Plex images if needed
+                # Only if no local images, try TMDB
                 if not poster_url or not backdrop_url or not main_backdrop_url:
-                    plex_poster, plex_backdrop, plex_main = await self._get_plex_images(item, item_id, is_show=True)
+                    if not tmdb_id:
+                        tmdb_id = await self._enhanced_tmdb_search(show_title, None, 'tv')
                     
-                    # Only use Plex images for the ones that are missing
-                    if not poster_url and plex_poster:
-                        poster_url = plex_poster
-                    if not backdrop_url and plex_backdrop:
-                        backdrop_url = plex_backdrop
-                    if not main_backdrop_url and plex_main:
-                        main_backdrop_url = plex_main
+                    if tmdb_id:
+                        try:
+                            tmdb_poster, tmdb_backdrop, tmdb_main = await self._get_tmdb_images(tmdb_id, 'tv')
+                            
+                            # Use TMDB images only for missing local images
+                            if not poster_url and tmdb_poster:
+                                poster_url = tmdb_poster
+                            if not backdrop_url and tmdb_backdrop:
+                                backdrop_url = tmdb_backdrop
+                            if not main_backdrop_url and tmdb_main:
+                                main_backdrop_url = tmdb_main
+                        except Exception as err:
+                            _LOGGER.error("Error getting TMDB images for %s: %s", show_title, err)
 
                 return {
                     'title': str(show_title)[:100],
@@ -276,27 +287,30 @@ class PlexMediarrSensor(TMDBMediaSensor):
                         tmdb_id = guid_str.split('themoviedb://')[1].split('?')[0]
                         break
 
-                if not tmdb_id:
-                    tmdb_id = await self._enhanced_tmdb_search(title, year, 'movie')
-
-                # Try TMDB images first
-                if tmdb_id:
-                    try:
-                        poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'movie')
-                    except Exception as err:
-                        _LOGGER.error("Error getting TMDB images for %s: %s", title, err)
+                # First, try getting local (Plex) images
+                local_poster, local_backdrop, local_main = await self._get_plex_images(item, item_id)
+                poster_url = local_poster
+                backdrop_url = local_backdrop
+                main_backdrop_url = local_main
                 
-                # Fallback to Plex images if needed
+                # Only if no local images, try TMDB
                 if not poster_url or not backdrop_url or not main_backdrop_url:
-                    plex_poster, plex_backdrop, plex_main = await self._get_plex_images(item, item_id)
-                    
-                    # Only use Plex images for the ones that are missing
-                    if not poster_url and plex_poster:
-                        poster_url = plex_poster
-                    if not backdrop_url and plex_backdrop:
-                        backdrop_url = plex_backdrop
-                    if not main_backdrop_url and plex_main:
-                        main_backdrop_url = plex_main
+                    if not tmdb_id:
+                        tmdb_id = await self._enhanced_tmdb_search(title, year, 'movie')
+
+                    if tmdb_id:
+                        try:
+                            tmdb_poster, tmdb_backdrop, tmdb_main = await self._get_tmdb_images(tmdb_id, 'movie')
+                            
+                            # Use TMDB images only for missing local images
+                            if not poster_url and tmdb_poster:
+                                poster_url = tmdb_poster
+                            if not backdrop_url and tmdb_backdrop:
+                                backdrop_url = tmdb_backdrop
+                            if not main_backdrop_url and tmdb_main:
+                                main_backdrop_url = tmdb_main
+                        except Exception as err:
+                            _LOGGER.error("Error getting TMDB images for %s: %s", title, err)
 
                 summary = str(item.get('summary', 'N/A'))
                 if len(summary) > 97:

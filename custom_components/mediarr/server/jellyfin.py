@@ -306,8 +306,14 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
         backdrop_url = f"{base_img_url}/Backdrop"
 
         try:
-            cached_poster = await self._download_and_cache_image(poster_url, item_id, "poster")
-            cached_backdrop = await self._download_and_cache_image(backdrop_url, item_id, "backdrop")
+            # Ensure full URL works with both HTTP and HTTPS
+            def _ensure_full_url(url):
+                if not url.startswith(('http://', 'https://')):
+                    return f"{self._base_url}{url}"
+                return url
+
+            cached_poster = await self._download_and_cache_image(_ensure_full_url(poster_url), item_id, "poster")
+            cached_backdrop = await self._download_and_cache_image(_ensure_full_url(backdrop_url), item_id, "backdrop")
             
             if cached_poster or cached_backdrop:
                 _LOGGER.debug("Successfully cached images for item %s", item_id)
@@ -383,30 +389,32 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
                 series_name = str(item.get('SeriesName', '')).strip()
                 tmdb_id = item.get('ProviderIds', {}).get('Tmdb')
                 
-                if not tmdb_id:
-                    _LOGGER.debug("Searching TMDB for TV show: %s", series_name)
-                    tmdb_id = await self._enhanced_tmdb_search(series_name, None, 'tv')
+                # First, try getting local (Jellyfin) images
+                local_poster, local_backdrop, local_main = await self._get_jellyfin_images(item_id)
+                poster_url = local_poster
+                backdrop_url = local_backdrop
+                main_backdrop_url = local_main
                 
-                # Try TMDB images first
-                if tmdb_id:
-                    try:
-                        _LOGGER.debug("Getting TMDB images for show ID: %s", tmdb_id)
-                        poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'tv')
-                    except Exception as err:
-                        _LOGGER.error("Error getting TMDB images for %s: %s", series_name, err)
-                
-                # Fallback to Jellyfin images if needed
+                # Only if no local images, try TMDB
                 if not poster_url or not backdrop_url or not main_backdrop_url:
-                    _LOGGER.debug("Falling back to Jellyfin images for: %s", series_name)
-                    jellyfin_poster, jellyfin_backdrop, jellyfin_main = await self._get_jellyfin_images(item_id)
+                    if not tmdb_id:
+                        _LOGGER.debug("Searching TMDB for TV show: %s", series_name)
+                        tmdb_id = await self._enhanced_tmdb_search(series_name, None, 'tv')
                     
-                    # Only use Jellyfin images for the ones that are missing
-                    if not poster_url and jellyfin_poster:
-                        poster_url = jellyfin_poster
-                    if not backdrop_url and jellyfin_backdrop:
-                        backdrop_url = jellyfin_backdrop
-                    if not main_backdrop_url and jellyfin_main:
-                        main_backdrop_url = jellyfin_main
+                    if tmdb_id:
+                        try:
+                            _LOGGER.debug("Getting TMDB images for show ID: %s", tmdb_id)
+                            tmdb_poster, tmdb_backdrop, tmdb_main = await self._get_tmdb_images(tmdb_id, 'tv')
+                            
+                            # Use TMDB images only for missing local images
+                            if not poster_url and tmdb_poster:
+                                poster_url = tmdb_poster
+                            if not backdrop_url and tmdb_backdrop:
+                                backdrop_url = tmdb_backdrop
+                            if not main_backdrop_url and tmdb_main:
+                                main_backdrop_url = tmdb_main
+                        except Exception as err:
+                            _LOGGER.error("Error getting TMDB images for %s: %s", series_name, err)
                 
                 return {
                     'title': str(item.get('SeriesName', '')),
@@ -427,33 +435,35 @@ class JellyfinMediarrSensor(TMDBMediaSensor):
                 title = str(item.get('Name', '')).strip()
                 year = item.get('ProductionYear')
                 
+                # First, try getting local (Jellyfin) images
+                local_poster, local_backdrop, local_main = await self._get_jellyfin_images(item_id)
+                poster_url = local_poster
+                backdrop_url = local_backdrop
+                main_backdrop_url = local_main
+                
                 # Try TMDB ID from provider IDs first
                 tmdb_id = item.get('ProviderIds', {}).get('Tmdb')
                 
-                if not tmdb_id:
-                    _LOGGER.debug("Searching TMDB for movie: %s (%s)", title, year)
-                    tmdb_id = await self._enhanced_tmdb_search(title, year, 'movie')
-                
-                # Try TMDB images first
-                if tmdb_id:
-                    try:
-                        _LOGGER.debug("Getting TMDB images for movie ID: %s", tmdb_id)
-                        poster_url, backdrop_url, main_backdrop_url = await self._get_tmdb_images(tmdb_id, 'movie')
-                    except Exception as err:
-                        _LOGGER.error("Error getting TMDB images for %s: %s", title, err)
-                
-                # Fallback to Jellyfin images if needed
+                # Only if no local images, try TMDB
                 if not poster_url or not backdrop_url or not main_backdrop_url:
-                    _LOGGER.debug("Falling back to Jellyfin images for: %s", title)
-                    jellyfin_poster, jellyfin_backdrop, jellyfin_main = await self._get_jellyfin_images(item_id)
+                    if not tmdb_id:
+                        _LOGGER.debug("Searching TMDB for movie: %s (%s)", title, year)
+                        tmdb_id = await self._enhanced_tmdb_search(title, year, 'movie')
                     
-                    # Only use Jellyfin images for the ones that are missing
-                    if not poster_url and jellyfin_poster:
-                        poster_url = jellyfin_poster
-                    if not backdrop_url and jellyfin_backdrop:
-                        backdrop_url = jellyfin_backdrop
-                    if not main_backdrop_url and jellyfin_main:
-                        main_backdrop_url = jellyfin_main
+                    if tmdb_id:
+                        try:
+                            _LOGGER.debug("Getting TMDB images for movie ID: %s", tmdb_id)
+                            tmdb_poster, tmdb_backdrop, tmdb_main = await self._get_tmdb_images(tmdb_id, 'movie')
+                            
+                            # Use TMDB images only for missing local images
+                            if not poster_url and tmdb_poster:
+                                poster_url = tmdb_poster
+                            if not backdrop_url and tmdb_backdrop:
+                                backdrop_url = tmdb_backdrop
+                            if not main_backdrop_url and tmdb_main:
+                                main_backdrop_url = tmdb_main
+                        except Exception as err:
+                            _LOGGER.error("Error getting TMDB images for %s: %s", title, err)
                 
                 return {
                     'title': str(item.get('Name', 'Unknown')),
