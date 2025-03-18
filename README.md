@@ -129,11 +129,11 @@ sensor:
 - **trending_type**: Content type to display for Trakt and TMDB
 - Available Filters
 
-hide_existing: Toggle library content filtering (default: true)
-min_year: Minimum release year for content
-exclude_talk_shows: Remove talk shows and similar content
-exclude_non_english: Show only English content
-exclude_genres: List of genre IDs to filter out
+- hide_existing: Toggle library content filtering (default: true)
+- min_year: Minimum release year for content
+- exclude_talk_shows: Remove talk shows and similar content
+- exclude_non_english: Show only English content
+- exclude_genres: List of genre IDs to filter out
 
 Common Genre IDs to Exclude
 
