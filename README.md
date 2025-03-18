@@ -146,10 +146,6 @@ Common Genre IDs to Exclude
 ### Step 3: if you want a front-end, install Mediarr-card from https://github.com/Vansmak/mediarr-card
 Add the Card
 
-# Card Configuration
-- All entity configurations are optional - use only what you need
-- Media player entity enables playback control (coming soon)
-
 ## Getting API Keys
 
 ### Plex
