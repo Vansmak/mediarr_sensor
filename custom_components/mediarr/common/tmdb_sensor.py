@@ -11,8 +11,8 @@ TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p"
 
 class TMDBMediaSensor(MediarrSensor, ABC):
     """Base class for TMDB-based media sensors."""
-    
-    def __init__(self, session, tmdb_api_key, language='en'):
+   
+    def __init__(self, session, tmdb_api_key, language='en', filters=None):
         """Initialize the sensor."""
         super().__init__()
         self._session = session
@@ -20,6 +20,21 @@ class TMDBMediaSensor(MediarrSensor, ABC):
         self._language = language
         self._available = True
         self._cache = {}
+       
+        # Initialize default filters
+        self._filters = {
+            'language': language,
+            'min_year': 0,
+            'exclude_talk_shows': True,
+            'exclude_genres': [10763, 10764, 10767],  # News, Reality, Talk shows
+            'exclude_non_english': True
+        }
+       
+        # Update with user-provided filters
+        if filters:
+            self._filters.update(filters)
+   
+    
 
     # In tmdb_sensor.py, update _format_date method
     def _format_date(self, date_str):
@@ -37,6 +52,61 @@ class TMDBMediaSensor(MediarrSensor, ABC):
         except Exception:
             return 'Unknown'
 
+    def is_talk_show(self, title):
+        """Check if a show title appears to be a talk show or similar format."""
+        if not self._filters.get('exclude_talk_shows', True):
+            return False
+            
+        keywords = [
+            'tonight show', 'late show', 'late night', 'daily show',
+            'talk show', 'with seth meyers', 'with james corden',
+            'with jimmy', 'with stephen', 'with trevor', 'news',
+            'live with', 'watch what happens live', 'the view',
+            'good morning', 'today show', 'kimmel', 'colbert',
+            'fallon', 'ellen', 'conan', 'graham norton', 'meet the press',
+            'face the nation', 'last week tonight', 'real time',
+            'kelly and', 'kelly &', 'jeopardy', 'wheel of fortune',
+            'daily mail', 'entertainment tonight', 'zeiten', 'schlechte'
+        ]
+        
+        title_lower = title.lower()
+        return any(keyword in title_lower for keyword in keywords)
+
+    def should_include_item(self, item, media_type):
+        """Apply filters to determine if an item should be included."""
+        # Filter by year
+        if media_type == 'tv' and 'first_air_date' in item and item['first_air_date']:
+            try:
+                year = int(item['first_air_date'].split('-')[0])
+                if year < self._filters.get('min_year', 0):
+                    return False
+            except (ValueError, IndexError):
+                pass
+        elif media_type == 'movie' and 'release_date' in item and item['release_date']:
+            try:
+                year = int(item['release_date'].split('-')[0])
+                if year < self._filters.get('min_year', 0):
+                    return False
+            except (ValueError, IndexError):
+                pass
+
+        # Filter by language
+        if self._filters.get('exclude_non_english', True) and item.get('original_language') != 'en':
+            return False
+
+        # Filter by genre
+        excluded_genres = self._filters.get('exclude_genres', [])
+        if any(genre_id in excluded_genres for genre_id in item.get('genre_ids', [])):
+            return False
+
+        # Filter for TV talk shows
+        if media_type == 'tv':
+            title = item.get('name', '')
+            if self.is_talk_show(title):
+                return False
+
+        return True
+    
     async def _fetch_tmdb_data(self, endpoint, params=None):
         """Fetch data from TMDB API."""
         try:
@@ -89,6 +159,8 @@ class TMDBMediaSensor(MediarrSensor, ABC):
         except Exception as err:
             _LOGGER.error("Error fetching TMDB data: %s", err)
             return None
+    
+
     
     async def _get_tmdb_images(self, tmdb_id, media_type='movie'):
         """Get TMDB image URLs without language filtering."""

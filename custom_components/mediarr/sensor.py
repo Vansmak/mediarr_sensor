@@ -1,3 +1,4 @@
+# Modified version of sensor.py to incorporate filters
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -85,20 +86,43 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         from .discovery.tmdb import TMDBMediarrSensor
         tmdb_config = config["tmdb"]
         tmdb_api_key = tmdb_config.get("tmdb_api_key")
-        
-        for endpoint in TMDB_ENDPOINTS.keys():
-            if tmdb_config.get(endpoint, False):
-                sensors.append(TMDBMediarrSensor(
-                    session,
-                    tmdb_api_key,
-                    tmdb_config.get("max_items", DEFAULT_MAX_ITEMS),
-                    endpoint
-                ))
+        filters = tmdb_config.get("filters", {})
+    
+    # Standard endpoints
+    for endpoint in ['trending', 'now_playing', 'upcoming', 'on_air', 'airing_today']:
+        if tmdb_config.get(endpoint, False):
+            sensors.append(TMDBMediarrSensor(
+                session,
+                tmdb_api_key,
+                tmdb_config.get("max_items", DEFAULT_MAX_ITEMS),
+                endpoint,
+                filters
+            ))
+    
+    # New endpoints for popular content
+    if tmdb_config.get("popular_movies", False):
+        sensors.append(TMDBMediarrSensor(
+            session,
+            tmdb_api_key,
+            tmdb_config.get("max_items", DEFAULT_MAX_ITEMS),
+            "popular_movies",
+            filters
+        ))
+    
+    if tmdb_config.get("popular_tv", False):
+        sensors.append(TMDBMediarrSensor(
+            session,
+            tmdb_api_key,
+            tmdb_config.get("max_items", DEFAULT_MAX_ITEMS),
+            "popular_tv",
+            filters
+        ))
 
     if "seer" in config:
         from .services.seer import SeerMediarrSensor
         from .discovery.seer_discovery import SeerDiscoveryMediarrSensor
         seer_config = config["seer"]
+        filters = seer_config.get("filters", {})
         
         # Create the original requests sensor
         sensors.append(SeerMediarrSensor(
@@ -109,7 +133,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             seer_config.get("max_items", DEFAULT_MAX_ITEMS)
         ))
         
-        # Create additional discovery sensors if enabled
+        # Create additional discovery sensors if enabled with filters
         if seer_config.get("trending", False):
             sensors.append(SeerDiscoveryMediarrSensor(
                 session,
@@ -117,7 +141,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 seer_config["url"],
                 seer_config.get("tmdb_api_key"),
                 seer_config.get("max_items", DEFAULT_MAX_ITEMS),
-                "trending"
+                "trending",
+                None,
+                filters  # Pass filters to the sensor
             ))
         
         if seer_config.get("popular_movies", False):
@@ -128,7 +154,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 seer_config.get("tmdb_api_key"),
                 seer_config.get("max_items", DEFAULT_MAX_ITEMS),
                 "popular_movies",
-                "movies"
+                "movies",
+                filters  # Pass filters to the sensor
             ))
         
         if seer_config.get("popular_tv", False):
@@ -139,7 +166,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 seer_config.get("tmdb_api_key"),
                 seer_config.get("max_items", DEFAULT_MAX_ITEMS),
                 "popular_tv",
-                "tv"
+                "tv",
+                filters  # Pass filters to the sensor
             ))
         
         if seer_config.get("discover", False):
@@ -149,7 +177,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 seer_config["url"],
                 seer_config.get("tmdb_api_key"),
                 seer_config.get("max_items", DEFAULT_MAX_ITEMS),
-                "discover"
+                "discover",
+                None,
+                filters  # Pass filters to the sensor
             ))
 
     if sensors:
