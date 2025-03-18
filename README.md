@@ -45,7 +45,8 @@ sensor:
 
 ### Step 1: Configure Sensors
 Add one or more of the following sensors to your `configuration.yaml, sensors`:
-## New addition, have multiple instances for sonarr and radarr (2 each)
+**Customizable Filters**: Control content discovery with granular options
+** have multiple instances for sonarr and radarr (2 each)
 ```yaml
 sensor:
   - platform: mediarr
@@ -56,8 +57,8 @@ sensor:
       tmdb_api_key: "your_tmdb_api_key" 
       trending: true # Optional     
       discover: true  # Optional
-      popular_movies: true  # Optional
-      popular_tv: true # Optional
+      popular_movies: false  # Optional, recommended to use tmdb for popular
+      popular_tv: false # Optional, recommended to use tmdb for popular
 
     plex:  # Optional
       url: Plex url
@@ -109,29 +110,38 @@ sensor:
     tmdb:  # Optional
       tmdb_api_key: "!secret tmdb_api_key"  #may need quotes
       trending_type: all  # Options: movie, tv, all
-      max_items: 45  #example how many items you want in sensor, you can chosse a different amount in card
+      max_items: 45  #example how many items you want in sensor, you can choose a different amount in card
       trending: true          # Default endpoint
       now_playing: true       # Optional
       upcoming: true          # Optional
       on_air: true            # Optional
       airing_today: false     # Optional
+      popular_movies: true
+      popular_tv: true
+      filters:
+        min_year: 2020  # Only show content from 2020 onwards
+        exclude_talk_shows: true
+        exclude_genres: [10763, 10764, 10767]
 ```
 # Sensor Configuration
 - **max_items**: Number of items to display (default: 45)
 - **days_to_check**: Days to look ahead for upcoming content (Sonarr only, default: 90)
 - **trending_type**: Content type to display for Trakt and TMDB
-- **language:
-  common language codes you might use:
+- Available Filters
 
-    en - English
-    fr - French
-    de - German
-    es - Spanish
-    it - Italian
-    zh - Chinese
-    ko - Korean
-    ja - japanese
-    nl - dutch
+hide_existing: Toggle library content filtering (default: true)
+min_year: Minimum release year for content
+exclude_talk_shows: Remove talk shows and similar content
+exclude_non_english: Show only English content
+exclude_genres: List of genre IDs to filter out
+
+Common Genre IDs to Exclude
+
+10763: News
+10764: Reality
+10767: Talk Shows
+35: Comedy (if you want to filter out comedy)
+99: Documentary (if you prefer scripted content)
   
 ### Step 3: if you want a front-end, install Mediarr-card from https://github.com/Vansmak/mediarr-card
 Add the Card
